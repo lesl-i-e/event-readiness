@@ -1,0 +1,19 @@
+# Ignore all data files and folders with large binaries
+data/
+*.tif
+*.pbf
+*.gz
+*.zip
+*.csv   # If your city_metrics.csv or others are huge; remove this line if you want to keep small CSVs
+
+# Also ignore common junk
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.idea/
+.vscode/
+*.log
