@@ -135,8 +135,9 @@ with tab1:
         df_rank["ERI"] = df_rank["ERI"].round(3)
 
         st.dataframe(
-            df_rank.style.background_gradient(subset=["ERI"], cmap="Blues"),
-            use_container_width=True
+            df_rank,
+            use_container_width=True,
+            hide_index=True
         )
 
         st.caption("Comment: Higher ERI indicates better overall readiness. Adjust weights in sidebar to prioritize aspects like transport or health.")
