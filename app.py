@@ -1,76 +1,70 @@
 import streamlit as st
 import pandas as pd
+import json
+from statistics import mean
 import folium
 from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 import plotly.express as px
-import plotly.graph_objects as go
-import json
-from statistics import mean
 import os
 
 # ───────────────────────────────────────────────
-# Page config & styling
+# Page config
 # ───────────────────────────────────────────────
 st.set_page_config(
-    page_title="African Cities Event Readiness Dashboard",
-    page_icon="🏟️",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Event Readiness – African Cities",
+    page_icon="🌍",
+    layout="wide"
 )
 
-# Simple custom styling
+# Minimal styling – avoid pink surprises
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { background-color: #2e7d32; color: white; border-radius: 6px; }
-    h1, h2, h3 { color: #1b5e20; }
-    .sidebar .sidebar-content { background-color: #e8f5e9; padding: 1rem; }
+    .main { background-color: #f9fafb; }
+    h1 { color: #1a3c34; }
+    .stAlert { margin-bottom: 1rem; }
     </style>
 """, unsafe_allow_html=True)
 
 # ───────────────────────────────────────────────
-# Load metrics data
+# Title & intro
 # ───────────────────────────────────────────────
-@st.cache_data
-def load_city_metrics():
-    path = "city_metrics.csv"
-    if not os.path.exists(path):
-        st.error(f"File not found: {path}")
-        return pd.DataFrame()
-    try:
-        return pd.read_csv(path)
-    except Exception as e:
-        st.error(f"Error reading city_metrics.csv: {str(e)}")
-        return pd.DataFrame()
-
-df_metrics = load_city_metrics()
+st.title("🌍 Event Readiness – African Cities")
+st.caption("Compare infrastructure readiness for hosting major events")
+st.markdown("---")
 
 # ───────────────────────────────────────────────
-# City list and file mappings
+# Sidebar – weights & city selection
 # ───────────────────────────────────────────────
+st.sidebar.header("Controls")
+
 cities = ["Nairobi", "Kampala", "Dar es Salaam", "Kigali", "Casablanca"]
 
-geojson_files = {
-    "Nairobi": "nairobi_infrastructure_features.geojson",
-    "Kampala": "kampala_infrastructure_features.geojson",
-    "Dar es Salaam": "dar_es_salaam_infrastructure_features.geojson",
-    "Kigali": "kigali_infrastructure_features.geojson",
-    "Casablanca": "casablanca_infrastructure_features.geojson"
-}
-
-boundary_files = {
-    "Nairobi": "nairobi_city_boundary.geojson",
-    "Kampala": "kampala_city_boundary.geojson",
-    "Dar es Salaam": "dar_es_salaam_city_boundary.geojson",
-    "Kigali": "kigali_city_boundary.geojson",
-    "Casablanca": "casablanca_city_boundary.geojson"
-}
+selected_cities = st.sidebar.multiselect(
+    "Select cities",
+    cities,
+    default=["Nairobi", "Kampala"]
+)
 
 # ───────────────────────────────────────────────
-# Indicators & labels
+# Load data with loud debug messages
 # ───────────────────────────────────────────────
-indicator_cols = [
+DATA_FILE = "city_metrics.csv"
+
+if not os.path.exists(DATA_FILE):
+    st.sidebar.error(f"CRITICAL: {DATA_FILE} not found in app root")
+    st.error(f"Cannot find **{DATA_FILE}** in the deployed app folder.")
+    st.stop()
+
+try:
+    df = pd.read_csv(DATA_FILE)
+    st.sidebar.success(f"Loaded {len(df)} rows from {DATA_FILE}")
+except Exception as e:
+    st.error(f"Failed to read {DATA_FILE}\n{e}")
+    st.stop()
+
+required_cols = [
+    "city",
     "road_density_km_km2_norm",
     "health_facilities_per_100k_pop_norm",
     "intersection_density_norm",
@@ -80,225 +74,118 @@ indicator_cols = [
     "population_density_norm"
 ]
 
-indicator_labels = {
-    "road_density_km_km2_norm": "Road Density (km/km²)",
-    "health_facilities_per_100k_pop_norm": "Health Facilities / 100k",
-    "intersection_density_norm": "Intersection Density",
-    "hotels_per_100k_norm": "Hotels / 100k Pop",
-    "airport_distance_km_norm": "Airport Proximity Score",
-    "open_space_per_100k_pop_norm": "Open Space / 100k Pop",
-    "population_density_norm": "Population Density"
-}
+missing_cols = [c for c in required_cols if c not in df.columns]
+if missing_cols:
+    st.error(f"Missing required columns in CSV: {', '.join(missing_cols)}")
+    st.stop()
+
+# Filter to selected cities
+df_sel = df[df["city"].isin(selected_cities)].copy()
+
+if df_sel.empty:
+    st.warning("None of the selected cities exist in the CSV. Check spelling/case in 'city' column.")
+    st.info(f"Available cities in data: {', '.join(df['city'].unique())}")
+else:
+    st.success(f"Showing data for {len(df_sel)} cities")
 
 # ───────────────────────────────────────────────
-# Sidebar
+# Weights
 # ───────────────────────────────────────────────
-st.sidebar.title("Controls")
-
-selected_cities = st.sidebar.multiselect(
-    "Cities to compare",
-    options=cities,
-    default=cities[:3]
-)
-
 st.sidebar.header("ERI Weights")
 
+indicators = required_cols[1:]  # exclude 'city'
 weights = {}
-for col in indicator_cols:
-    label = indicator_labels.get(col, col)
-    weights[col] = st.sidebar.slider(
-        label,
-        min_value=0.0,
-        max_value=1.0,
-        value=1.0 / len(indicator_cols),
-        step=0.05,
-        key=f"weight_{col}"
-    )
+for col in indicators:
+    nice_name = col.replace("_norm", "").replace("_", " ").title()
+    weights[col] = st.sidebar.slider(nice_name, 0.0, 1.0, 0.14, step=0.05)
 
-# Normalize
-total_weight = sum(weights.values())
-normalized_weights = {k: (v / total_weight if total_weight > 0 else 1/len(indicator_cols)) for k, v in weights.items()}
+total_w = sum(weights.values())
+weights_norm = {k: v/total_w if total_w > 0 else 1/len(indicators) for k,v in weights.items()}
 
-# Compute ERI
-if not df_metrics.empty and all(col in df_metrics.columns for col in indicator_cols):
-    df_metrics["ERI"] = df_metrics[indicator_cols].mul(list(normalized_weights.values()), axis=1).sum(axis=1)
-else:
-    st.sidebar.warning("Some indicators missing from data → ERI may be incomplete")
+# Calculate ERI
+df_sel["ERI"] = df_sel[indicators].mul(list(weights_norm.values()), axis=1).sum(axis=1)
 
 # ───────────────────────────────────────────────
-# Main dashboard
+# Main content – simple & robust
 # ───────────────────────────────────────────────
-st.title("🏟️ African Cities – Event Readiness Dashboard")
-st.caption("Compare infrastructure readiness for hosting large-scale events | Data: OSM, WorldPop, GADM, World Bank")
+col_left, col_right = st.columns([3, 2])
 
-# ───────────────────────────────────────────────
-# Rankings
-# ───────────────────────────────────────────────
-st.header("City Rankings – Event Readiness Index")
-
-if not df_metrics.empty:
-    df_view = df_metrics[df_metrics["city"].isin(selected_cities)][["city", "ERI"]].copy()
-    if not df_view.empty:
-        df_view = df_view.sort_values("ERI", ascending=False).reset_index(drop=True)
-        df_view["Rank"] = df_view.index + 1
-        df_view["ERI"] = df_view["ERI"].round(3)
-
+with col_left:
+    st.subheader("Rankings")
+    if not df_sel.empty:
+        rank_df = df_sel[["city", "ERI"]].sort_values("ERI", ascending=False).reset_index(drop=True)
+        rank_df["Rank"] = rank_df.index + 1
         st.dataframe(
-            df_view.style
-                .background_gradient(subset=["ERI"], cmap="YlGn")
-                .format(precision=3),
+            rank_df[["Rank", "city", "ERI"]].style.format({"ERI": "{:.3f}"}),
             use_container_width=True,
             hide_index=True
         )
     else:
-        st.info("None of the selected cities are present in the metrics data.")
-else:
-    st.error("Could not load city_metrics.csv")
+        st.info("No matching data – check city names in CSV")
+
+with col_right:
+    st.subheader("ERI Bar Chart")
+    if not df_sel.empty:
+        fig = px.bar(
+            df_sel,
+            x="city",
+            y="ERI",
+            color="city",
+            text_auto=".3f",
+            height=300
+        )
+        fig.update_layout(showlegend=False, margin=dict(l=10, r=10, t=10, b=10))
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No data to plot")
 
 # ───────────────────────────────────────────────
-# Bar chart
+# Maps – very simple version
 # ───────────────────────────────────────────────
-st.header("ERI Comparison Bar Chart")
-
-if not df_metrics.empty and selected_cities:
-    fig_bar = px.bar(
-        df_metrics[df_metrics["city"].isin(selected_cities)],
-        x="city",
-        y="ERI",
-        color="city",
-        text_auto='.3f',
-        title="Event Readiness Index – Selected Cities",
-        labels={"ERI": "ERI Score", "city": "City"},
-        color_discrete_sequence=px.colors.qualitative.Pastel
-    )
-    fig_bar.update_traces(textposition='outside')
-    fig_bar.update_layout(showlegend=False, xaxis_title=None, yaxis_title="ERI Score")
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-# ───────────────────────────────────────────────
-# Radar chart
-# ───────────────────────────────────────────────
-st.header("Indicator Radar Comparison")
-
-if selected_cities and not df_metrics.empty:
-    fig_radar = go.Figure()
-
-    for city in selected_cities:
-        row = df_metrics[df_metrics["city"] == city]
-        if not row.empty:
-            values = row[indicator_cols].values.flatten().tolist()
-            fig_radar.add_trace(go.Scatterpolar(
-                r=values + [values[0]],
-                theta=list(indicator_labels.values()) + [list(indicator_labels.values())[0]],
-                fill='toself',
-                name=city,
-                line=dict(width=2)
-            ))
-
-    fig_radar.update_layout(
-        polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
-        showlegend=True,
-        title="Normalized Indicators – Radar View",
-        height=600
-    )
-    st.plotly_chart(fig_radar, use_container_width=True)
-else:
-    st.info("Select cities with available data to see radar comparison.")
-
-# ───────────────────────────────────────────────
-# Maps – pure JSON + folium (no geopandas)
-# ───────────────────────────────────────────────
-st.header("City Infrastructure Overview Maps")
+st.subheader("City Maps")
 
 if selected_cities:
-    map_columns = st.columns(min(3, len(selected_cities)))
+    map_cols = st.columns(3)
+    for i, city in enumerate(selected_cities[:3]):  # max 3 maps
+        with map_cols[i]:
+            st.caption(city)
 
-    for idx, city in enumerate(selected_cities):
-        with map_columns[idx % len(map_columns)]:
-            st.subheader(city)
+            feat_path = geojson_files.get(city)
+            bound_path = boundary_files.get(city)
 
-            feat_file = geojson_files.get(city)
-            bound_file = boundary_files.get(city)
+            if not (feat_path and bound_path and os.path.exists(feat_path) and os.path.exists(bound_path)):
+                st.warning("Map files missing")
+                continue
 
-            if feat_file and bound_file and os.path.exists(feat_file) and os.path.exists(bound_file):
-                try:
-                    # Load GeoJSON as dictionaries
-                    with open(feat_file, 'r', encoding='utf-8') as f:
-                        gj_features = json.load(f)
-                    with open(bound_file, 'r', encoding='utf-8') as f:
-                        gj_boundary = json.load(f)
+            try:
+                with open(bound_path, 'r', encoding='utf-8') as f:
+                    bound = json.load(f)
 
-                    # Calculate approximate centroid
-                    def collect_coordinates(geometry):
-                        coords = []
-                        def recurse(item):
-                            if isinstance(item, list) and len(item) == 2 and all(isinstance(x, (int, float)) for x in item):
-                                coords.append(item)
-                            elif isinstance(item, list):
-                                for sub in item:
-                                    recurse(sub)
-                        recurse(geometry.get('coordinates', []))
-                        return coords
+                # Very simple centroid
+                coords = []
+                def find_coords(g):
+                    if isinstance(g, list) and len(g) == 2 and isinstance(g[0], (int,float)):
+                        coords.append(g)
+                    elif isinstance(g, list):
+                        for x in g: find_coords(x)
+                find_coords(bound.get('features',[{}])[0].get('geometry',{}).get('coordinates',[]))
 
-                    center_lat, center_lon = 0.0, 0.0
-                    if 'features' in gj_boundary and gj_boundary['features']:
-                        geom = gj_boundary['features'][0]['geometry']
-                        all_points = collect_coordinates(geom)
-                        if all_points:
-                            lons = [p[0] for p in all_points]
-                            lats = [p[1] for p in all_points]
-                            center_lat, center_lon = mean(lats), mean(lons)
+                if coords:
+                    lat = mean(c[1] for c in coords)
+                    lon = mean(c[0] for c in coords)
+                else:
+                    lat, lon = 0, 0
 
-                    # Create map
-                    m = folium.Map(
-                        location=[center_lat, center_lon],
-                        zoom_start=11,
-                        tiles="CartoDB positron"
-                    )
+                m = folium.Map(location=[lat, lon], zoom_start=10, tiles="CartoDB positron")
 
-                    # Add boundary
-                    folium.GeoJson(
-                        gj_boundary,
-                        style_function=lambda _: {
-                            'fillColor': 'none',
-                            'color': '#1b5e20',
-                            'weight': 3.5,
-                            'opacity': 0.9
-                        }
-                    ).add_to(m)
+                folium.GeoJson(bound, style_function=lambda _: {'color': 'darkgreen', 'weight': 3}).add_to(m)
 
-                    # Add features with clustering
-                    marker_cluster = MarkerCluster().add_to(m)
+                st_folium(m, width=300, height=300, returned_objects=[])
 
-                    for feature in gj_features.get('features', []):
-                        props = feature.get('properties', {})
-                        popup = (
-                            props.get('name') or
-                            props.get('feature_type', 'Feature') or
-                            'Unnamed feature'
-                        )
-                        folium.GeoJson(
-                            feature,
-                            popup=popup,
-                            style_function=lambda _: {'color': '#1976d2', 'weight': 2.2}
-                        ).add_to(marker_cluster)
-
-                    # Show map
-                    st_folium(m, width=420, height=420, returned_objects=[])
-
-                except Exception as e:
-                    st.error(f"Map rendering failed for {city}\n{str(e)}")
-            else:
-                st.warning(f"GeoJSON file(s) missing for {city}")
+            except Exception as e:
+                st.error(f"Map error: {str(e)[:80]}...")
 else:
-    st.info("Select cities above to display their maps.")
+    st.info("Select cities to see maps")
 
-# ───────────────────────────────────────────────
-# Footer
-# ───────────────────────────────────────────────
 st.markdown("---")
-st.caption(
-    "Data sources: OpenStreetMap • WorldPop • GADM • World Bank  |  "
-    f"Last updated: January 19, 2026  |  "
-    "Event Readiness Index Dashboard – Nairobi, KE"
-)
+st.caption("Data: OSM / WorldPop / GADM / World Bank | App rebuilt Jan 19, 2026")
