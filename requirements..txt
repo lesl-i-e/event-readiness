@@ -1,13 +1,12 @@
-# Core packages
-streamlit>=1.39.0
-pandas>=2.2.0
-plotly>=5.24.0
-folium>=0.17.0
-streamlit-folium>=0.23.0
+streamlit==1.39.0
+pandas==2.2.2
+plotly==5.24.1
+folium==0.17.0
+streamlit-folium==0.23.1
 
-# Geospatial - pinned stable versions that avoid build failures
+# Geospatial – use versions with manylinux wheels that install cleanly on Cloud
 geopandas==0.14.4
-shapely==2.0.6
+shapely==2.0.4
 fiona==1.9.6
 pyproj==3.6.1
-GDAL==3.8.5  # sometimes explicit helps
+rtree==1.2.0
