@@ -1,22 +1,3 @@
-# Diagnostic wrapper: add at top of app.py (before other imports)
-import sys, subprocess
-import streamlit as st
-
-def show_env_and_freeze(info_msg=None):
-    st.write("Environment:", sys.executable, sys.version)
-    st.write("PIP freeze:")
-    st.text(subprocess.run([sys.executable, "-m", "pip", "freeze"], capture_output=True, text=True).stdout)
-    if info_msg:
-        st.error(info_msg)
-
-try:
-    import folium
-    import streamlit_folium
-except Exception as e:
-    show_env_and_freeze(f"Import error: {e}")
-    # re-raise so the build log / runtime still shows a failure
-    raise
-
 import streamlit as st
 import pandas as pd
 import folium
