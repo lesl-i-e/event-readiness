@@ -1,0 +1,31 @@
+Country Name,Country Code,Series Name,Series Code,2019 [YR2019],2020 [YR2020],2021 [YR2021]
+Kenya,KEN,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,1.33,..,..
+Kenya,KEN,"Physicians (per 1,000 people)",SH.MED.PHYS.ZS,..,..,0.098
+Kenya,KEN,People using safely managed sanitation services (% of population),SH.STA.SMSS.ZS,32.5970104765088,33.2870552693244,33.9762339824669
+Kenya,KEN,People using at least basic drinking water services (% of population),SH.H2O.BASW.ZS,61.4907638599362,62.318211896262,63.1426684243247
+Kenya,KEN,Access to electricity (% of population),EG.ELC.ACCS.ZS,69.7,71.5,76.5
+Uganda,UGA,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,..,..,..
+Uganda,UGA,"Physicians (per 1,000 people)",SH.MED.PHYS.ZS,..,0.158,..
+Uganda,UGA,People using safely managed sanitation services (% of population),SH.STA.SMSS.ZS,18.8535292520553,19.1642487609885,19.4730265565705
+Uganda,UGA,People using at least basic drinking water services (% of population),SH.H2O.BASW.ZS,54.6148662999288,56.2751724073816,57.9452003284678
+Uganda,UGA,Access to electricity (% of population),EG.ELC.ACCS.ZS,41.3,42.1,45.2
+Morocco,MAR,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,0.7,0.73,..
+Morocco,MAR,"Physicians (per 1,000 people)",SH.MED.PHYS.ZS,..,..,..
+Morocco,MAR,People using safely managed sanitation services (% of population),SH.STA.SMSS.ZS,9.3222226077393,9.22322809152975,8.99393023762136
+Morocco,MAR,People using at least basic drinking water services (% of population),SH.H2O.BASW.ZS,86.7740979476491,87.9176789567835,89.0414569298463
+Morocco,MAR,Access to electricity (% of population),EG.ELC.ACCS.ZS,99.6,100,100
+Tanzania,TZA,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,0.61,0.63,..
+Tanzania,TZA,"Physicians (per 1,000 people)",SH.MED.PHYS.ZS,..,..,..
+Tanzania,TZA,People using safely managed sanitation services (% of population),SH.STA.SMSS.ZS,23.6164485665611,24.5591981774851,25.5140643400153
+Tanzania,TZA,People using at least basic drinking water services (% of population),SH.H2O.BASW.ZS,56.8787467857379,58.4288709914851,59.9769893426504
+Tanzania,TZA,Access to electricity (% of population),EG.ELC.ACCS.ZS,37.7,39.9,42.7
+Rwanda,RWA,"Hospital beds (per 1,000 people)",SH.MED.BEDS.ZS,0.72,0.74,..
+Rwanda,RWA,"Physicians (per 1,000 people)",SH.MED.PHYS.ZS,0.116,..,..
+Rwanda,RWA,People using safely managed sanitation services (% of population),SH.STA.SMSS.ZS,..,..,..
+Rwanda,RWA,People using at least basic drinking water services (% of population),SH.H2O.BASW.ZS,58.4728536131809,59.0523587439994,59.6381227763257
+Rwanda,RWA,Access to electricity (% of population),EG.ELC.ACCS.ZS,46.6,45.2,48.7
+,,,,,,
+,,,,,,
+,,,,,,
+Data from database: World Development Indicators,,,,,,
+Last Updated: 12/19/2025,,,,,,
