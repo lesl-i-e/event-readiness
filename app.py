@@ -222,35 +222,96 @@ with tab3:
         st.info("Select cities")
 
 with tab4:
-    st.header("Single City Focus")
-    st.markdown("Deep dive into one city: select to see detailed viz and comments.")
+    st.header("Single City Deep Dive")
+    st.markdown("Detailed indicator scores and map for one selected city.")
 
-    single_city = st.selectbox("Select City", cities)
+    single_city = st.selectbox("Choose a city to explore", cities, index=0)
 
     if single_city and not df_metrics.empty:
         row = df_metrics[df_metrics["city"] == single_city]
         if not row.empty:
-            st.subheader(f"ERI for {single_city}: {row['ERI'].values[0]:.3f}")
-            fig_single_bar = px.bar(
-                row[indicator_cols].T.reset_index(),
-                x="index",
-                y=single_city,
-                title="Indicator Scores",
-                labels={"index": "Indicator", single_city: "Score"},
-                height=400
+            # Extract scores safely
+            scores = row[indicator_cols].iloc[0].to_dict()  # dict: indicator → value
+
+            # Create clean DataFrame for plotting
+            plot_df = pd.DataFrame({
+                "Indicator": list(indicator_labels.values()),
+                "Score": list(scores.values())
+            })
+
+            st.subheader(f"ERI for {single_city}: **{row['ERI'].iloc[0]:.3f}**")
+
+            fig_single = px.bar(
+                plot_df,
+                x="Indicator",
+                y="Score",
+                title=f"Normalized Indicator Scores – {single_city}",
+                labels={"Score": "Normalized Score (0–1)"},
+                text_auto=".3f",
+                height=450,
+                color="Score",
+                color_continuous_scale="Blues"
             )
-            st.plotly_chart(fig_single_bar, use_container_width=True)
-            st.caption("Comment: Bars show normalized scores. High in health indicates good emergency capacity for events.")
+            fig_single.update_layout(
+                xaxis_tickangle=-45,
+                showlegend=False,
+                margin=dict(l=20, r=20, t=60, b=100)
+            )
+            st.plotly_chart(fig_single, use_container_width=True)
 
-            st.subheader("Map of {single_city}")
-            # Same map code as above, but for single city
-            # (duplicate the map logic here if needed, but for brevity, assume it's similar)
-            st.info("Map would go here if files load – check paths")
+            st.caption(
+                "Interpretation: Higher bars = better performance in that dimension. "
+                "E.g., high 'Road Density' suggests strong transport connectivity, "
+                "but may also indicate congestion risks during large events."
+            )
 
+            # Map placeholder (same logic as tab3)
+            st.subheader(f"Infrastructure Map – {single_city}")
+            feat_path = geojson_files.get(single_city)
+            bound_path = boundary_files.get(single_city)
+
+            if feat_path and bound_path and os.path.exists(feat_path) and os.path.exists(bound_path):
+                try:
+                    with open(feat_path, 'r', encoding='utf-8') as f:
+                        gj_feat = json.load(f)
+                    with open(bound_path, 'r', encoding='utf-8') as f:
+                        gj_bound = json.load(f)
+
+                    # Centroid calculation (same helper function as before)
+                    def get_coords(geom):
+                        coords = []
+                        def recurse(obj):
+                            if isinstance(obj, list) and len(obj) == 2 and all(isinstance(x, (int, float)) for x in obj):
+                                coords.append(obj)
+                            elif isinstance(obj, list):
+                                for item in obj:
+                                    recurse(item)
+                        recurse(geom.get('coordinates', []))
+                        return coords
+
+                    all_points = []
+                    if 'features' in gj_bound and gj_bound['features']:
+                        all_points = get_coords(gj_bound['features'][0]['geometry'])
+                    center = [mean([p[1] for p in all_points]), mean([p[0] for p in all_points])] if all_points else [0, 0]
+
+                    m = folium.Map(location=center, zoom_start=11, tiles="CartoDB positron")
+                    folium.GeoJson(gj_bound, style_function=lambda x: {'color': 'darkblue', 'weight': 3}).add_to(m)
+
+                    cluster = MarkerCluster().add_to(m)
+                    for feat in gj_feat.get('features', []):
+                        popup = feat.get('properties', {}).get('name', 'Feature')
+                        folium.GeoJson(feat, popup=popup).add_to(cluster)
+
+                    st_folium(m, width=700, height=500, returned_objects=[])
+
+                except Exception as e:
+                    st.warning(f"Could not load map: {str(e)[:100]}...")
+            else:
+                st.info("Map files not found for this city.")
         else:
-            st.info("No data for this city in CSV")
+            st.warning(f"No data found for {single_city} in city_metrics.csv")
     else:
-        st.info("Select a city")
+        st.info("Select a city above to view detailed breakdown.")
 
 # ───────────────────────────────────────────────
 # Footer
