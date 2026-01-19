@@ -3,7 +3,7 @@ import pandas as pd
 
 st.set_page_config(page_title="Event Readiness Index", layout="wide")
 
-df = pd.read_csv("data/city_metrics.csv")
+df = pd.read_csv("city_metrics.csv")
 
 indicator_cols = [
     "road_density_km_km2_norm",
