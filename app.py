@@ -227,58 +227,51 @@ with tab3:
 with tab4:
     st.header("Single City Deep Dive")
     st.markdown(
-        "Detailed view of indicator scores and infrastructure map for one city.\n\n"
-        "Use the sidebar selector to choose which city to focus on."
+        "Explore detailed normalized indicators and infrastructure map for **one city at a time**.\n\n"
+        "Change the city using the dropdown below — the view updates instantly."
     )
 
-    # ───────────────────────────────────────────────
-    # City selector is in the sidebar (moved outside tab to avoid session init errors)
-    # ───────────────────────────────────────────────
-
-    # Default to first city if not set
+    # Persistent city choice within this tab
     if "deep_dive_city" not in st.session_state:
-        st.session_state.deep_dive_city = cities[0]
+        st.session_state.deep_dive_city = "Nairobi"  # default
 
-    
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("Deep Dive Mode")
-    single_city = st.sidebar.selectbox(
-        "Focus on one city",
+    single_city = st.selectbox(
+        "Select city to explore",
         options=cities,
         index=cities.index(st.session_state.deep_dive_city),
-        key="deep_dive_city_selector"
-     )
+        key="deep_dive_city_tab_selector"
+    )
+
+    # Update session state so choice survives reruns / tab switches
     st.session_state.deep_dive_city = single_city
 
-    # Use the value stored in session state
-    single_city = st.session_state.deep_dive_city
-
-    st.subheader(f"Selected city: **{single_city}**")
+    st.subheader(f"Deep Dive: **{single_city}**")
 
     if not df_metrics.empty:
         row = df_metrics[df_metrics["city"] == single_city]
-        
+
         if not row.empty:
-            # Extract normalized scores safely
+            # ───────────────────────────────
+            # ERI Metric
+            # ───────────────────────────────
+            eri_value = row["ERI"].iloc[0]
+            st.metric(
+                label="Event Readiness Index (ERI)",
+                value=f"{eri_value:.3f}",
+                help="Weighted average of normalized indicators below"
+            )
+
+            # ───────────────────────────────
+            # Bar chart – already working well
+            # ───────────────────────────────
             scores_dict = row[indicator_cols].iloc[0].to_dict()
 
-            # Build clean DataFrame for plotting
             plot_df = pd.DataFrame({
                 "Indicator": [indicator_labels.get(k, k.replace("_norm", "").replace("_", " ").title()) 
                               for k in scores_dict],
                 "Score": list(scores_dict.values())
             })
 
-            # Display current ERI
-            eri_value = row["ERI"].iloc[0]
-            st.metric(
-                label="Event Readiness Index (ERI)",
-                value=f"{eri_value:.3f}",
-                delta=None,
-                help="Weighted average of the normalized indicators below"
-            )
-
-            # Bar chart – safe construction
             fig_single = px.bar(
                 plot_df,
                 x="Indicator",
@@ -302,30 +295,41 @@ with tab4:
             st.plotly_chart(fig_single, use_container_width=True)
 
             st.caption(
-                "Interpretation:\n"
-                "• Higher bars indicate stronger performance in that dimension.\n"
-                "• Good road density & intersection scores suggest solid transport access.\n"
-                "• High health/hotels scores mean better capacity for crowds and emergencies.\n"
-                "• Population density helps contextualize crowd pressure during events."
+                "**Quick interpretation**\n"
+                "• Taller bars = stronger performance in that area\n"
+                "• High road/intersection density → good accessibility\n"
+                "• High health/hotels → better crowd & emergency handling\n"
+                "• Population density gives context for crowd pressure"
             )
 
-            # ───────────────────────────────────────────────
-            # Map for the selected city
-            # ───────────────────────────────────────────────
+            # ───────────────────────────────
+            # Infrastructure Map – with strong debugging
+            # ───────────────────────────────
             st.subheader(f"Infrastructure Map – {single_city}")
 
             feat_path = geojson_files.get(single_city)
             bound_path = boundary_files.get(single_city)
 
-            if feat_path and bound_path and os.path.exists(feat_path) and os.path.exists(bound_path):
+            if not feat_path or not bound_path:
+                st.error(f"Mapping paths not defined for {single_city}")
+            elif not os.path.exists(feat_path):
+                st.error(f"Features file missing: {feat_path}")
+            elif not os.path.exists(bound_path):
+                st.error(f"Boundary file missing: {bound_path}")
+            else:
                 try:
+                    st.info("Loading map files...")
+
                     with open(feat_path, 'r', encoding='utf-8') as f:
                         gj_features = json.load(f)
+
                     with open(bound_path, 'r', encoding='utf-8') as f:
                         gj_boundary = json.load(f)
 
-                    # Compute approximate center
-                    def extract_coords(geometry):
+                    st.success("Files loaded successfully")
+
+                    # Centroid calculation
+                    def extract_coordinates(geom):
                         coords = []
                         def recurse(obj):
                             if isinstance(obj, list) and len(obj) == 2 and isinstance(obj[0], (int, float)):
@@ -333,49 +337,55 @@ with tab4:
                             elif isinstance(obj, list):
                                 for item in obj:
                                     recurse(item)
-                        recurse(geometry.get('coordinates', []))
+                        recurse(geom.get('coordinates', []))
                         return coords
 
-                    all_coords = []
+                    all_points = []
                     if 'features' in gj_boundary and gj_boundary['features']:
-                        all_coords = extract_coords(gj_boundary['features'][0]['geometry'])
+                        all_points = extract_coordinates(gj_boundary['features'][0]['geometry'])
 
-                    center = [mean([c[1] for c in all_coords]), mean([c[0] for c in all_coords])] if all_coords else [0.0, 0.0]
+                    if all_points:
+                        center_lat = mean(c[1] for c in all_points)
+                        center_lon = mean(c[0] for c in all_points)
+                    else:
+                        center_lat, center_lon = 0.0, 0.0
+                        st.warning("Could not calculate center – using fallback (0,0)")
 
-                    # Create dark-themed map
+                    # Create map
                     m = folium.Map(
-                        location=center,
+                        location=[center_lat, center_lon],
                         zoom_start=11,
-                        tiles="CartoDB dark_matter"
+                        tiles="CartoDB positron"
                     )
 
-                    # Boundary outline
+                    # Boundary
                     folium.GeoJson(
                         gj_boundary,
-                        style_function=lambda x: {'color': '#00b7eb', 'weight': 3, 'fillOpacity': 0.05}
+                        style_function=lambda x: {'color': '#1f77b4', 'weight': 3, 'fillOpacity': 0.1}
                     ).add_to(m)
 
-                    # Clustered features
+                    # Features cluster
                     marker_cluster = MarkerCluster().add_to(m)
-                    for feature in gj_features.get('features', []):
-                        props = feature.get('properties', {})
-                        popup_text = props.get('name', '') or props.get('feature_type', 'Feature') or 'Unnamed'
+                    for feat in gj_features.get('features', []):
+                        props = feat.get('properties', {})
+                        popup = props.get('name', '') or props.get('feature_type', 'Feature') or 'Unnamed'
                         folium.GeoJson(
-                            feature,
-                            popup=popup_text,
-                            style_function=lambda x: {'color': '#ff6b6b', 'weight': 2}
+                            feat,
+                            popup=popup
                         ).add_to(marker_cluster)
 
-                    st_folium(m, width=None, height=500, returned_objects=[])
+                    # Render
+                    st_folium(m, width=None, height=600, returned_objects=[])
 
+                except json.JSONDecodeError as je:
+                    st.error(f"JSON parsing error: {str(je)}")
                 except Exception as e:
-                    st.error(f"Could not render map: {str(e)[:120]}...")
-            else:
-                st.info("GeoJSON files for this city were not found in the app root.")
+                    st.error(f"Map rendering failed: {str(e)}")
+                    st.caption("Common causes: invalid GeoJSON format, empty features, or coordinate issues.")
         else:
-            st.warning(f"No metrics data available for **{single_city}** in city_metrics.csv")
+            st.warning(f"No data row found for **{single_city}** in city_metrics.csv")
     else:
-        st.info("Metrics data not loaded – check city_metrics.csv file")
+        st.info("Metrics data not loaded – check if city_metrics.csv exists and has correct columns.")
 
 # ───────────────────────────────────────────────
 # Footer
