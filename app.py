@@ -432,6 +432,12 @@ with tab3:
                         location=[center_lat, center_lon],
                         zoom_start=12,
                         tiles="CartoDB positron"
+                        scrollWheelZoom=False,
+                        dragging=False,
+                        zoom_control=False,
+                        doubleClickZoom=True,
+                        touchZoom=False,
+                        keyboard=False
                     )
 
                     folium.GeoJson(
