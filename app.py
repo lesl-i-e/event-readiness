@@ -42,16 +42,30 @@ def load_metrics():
     if os.path.exists(path):
         try:
             df = pd.read_csv(path)
-            st.sidebar.success(f"Loaded {len(df)} cities from CSV")
+            st.success(f"Loaded {len(df)} cities from city_metrics.csv")  # moved to main area
             return df
         except Exception as e:
-            st.sidebar.error(f"CSV load error: {str(e)}")
+            st.error(f"CSV load error: {str(e)}")
             return pd.DataFrame()
     else:
-        st.sidebar.error("city_metrics.csv not found")
+        st.error("city_metrics.csv not found")
         return pd.DataFrame()
 
 df_metrics = load_metrics()
+
+# Fixed equal-weight ERI (no sidebar controls anymore)
+indicator_cols = [
+    "road_density_km_km2_norm",
+    "health_facilities_per_100k_pop_norm",
+    "intersection_density_norm",
+    "hotels_per_100k_norm",
+    "airport_distance_km_norm",
+    "open_space_per_100k_pop_norm",
+    "population_density_norm"
+]
+
+if not df_metrics.empty and all(col in df_metrics.columns for col in indicator_cols):
+    df_metrics["ERI"] = df_metrics[indicator_cols].mean(axis=1)  # simple average = equal weights
 
 # ───────────────────────────────────────────────
 # City & files
@@ -74,17 +88,6 @@ boundary_files = {
     "Casablanca": "casablanca_city_boundary.geojson"
 }
 
-# Indicators
-indicator_cols = [
-    "road_density_km_km2_norm",
-    "health_facilities_per_100k_pop_norm",
-    "intersection_density_norm",
-    "hotels_per_100k_norm",
-    "airport_distance_km_norm",
-    "open_space_per_100k_pop_norm",
-    "population_density_norm"
-]
-
 indicator_labels = {
     "road_density_km_km2_norm": "Road Density (km/km²)",
     "health_facilities_per_100k_pop_norm": "Health Facilities / 100k",
@@ -94,31 +97,6 @@ indicator_labels = {
     "open_space_per_100k_pop_norm": "Open Space / 100k Pop",
     "population_density_norm": "Population Density"
 }
-
-# ───────────────────────────────────────────────
-# Sidebar for global controls
-# ───────────────────────────────────────────────
-st.sidebar.title("Global Controls")
-
-selected_cities = st.sidebar.multiselect(
-    "Compare Cities",
-    cities,
-    default=cities[:2]
-)
-
-st.sidebar.header("ERI Weights")
-weights = {}
-for col in indicator_cols:
-    label = indicator_labels.get(col, col)
-    weights[col] = st.sidebar.slider(label, 0.0, 1.0, 1.0 / len(indicator_cols), step=0.05)
-
-# Normalize weights
-total = sum(weights.values())
-weights = {k: v / total if total > 0 else 1.0 / len(indicator_cols) for k, v in weights.items()}
-
-# Compute ERI
-if not df_metrics.empty:
-    df_metrics["ERI"] = df_metrics[indicator_cols].mul(list(weights.values()), axis=1).sum(axis=1)
 
 # ───────────────────────────────────────────────
 # Tabs structure
@@ -138,7 +116,7 @@ st.markdown(
 )
 
 # =============================================================================
-# TAB 1 – Overview & Rankings (Landing Page)
+# TAB 1 – Overview & Rankings
 # =============================================================================
 with tab1:
     st.header("Welcome to Event Readiness Dashboard")
@@ -149,7 +127,6 @@ with tab1:
         """
     )
 
-    # Quick stats cards – makes it feel like a dashboard landing page
     if not df_metrics.empty:
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -164,10 +141,8 @@ with tab1:
 
     st.markdown("---")
 
-    # Bar chart – placed first, prominent
     st.subheader("Event Readiness Index – All Cities")
     if not df_metrics.empty:
-        # Sort for visual ranking
         df_bar = df_metrics.sort_values("ERI", ascending=False).copy()
         df_bar["ERI"] = df_bar["ERI"].round(3)
 
@@ -176,7 +151,7 @@ with tab1:
             x="city",
             y="ERI",
             color="city",
-            text="ERI",                      # show value on bars
+            text="ERI",
             title="Event Readiness Index Comparison",
             labels={"ERI": "ERI Score", "city": "City"},
             color_discrete_sequence=px.colors.qualitative.Bold,
@@ -201,25 +176,19 @@ with tab1:
 
         st.plotly_chart(fig_bar, use_container_width=True)
 
-        st.caption(
-            "Higher bars = better overall readiness. "
-            "Adjust weights in the sidebar to see how priorities change rankings."
-        )
+        st.caption("Higher bars = better overall readiness.")
     else:
         st.info("No metrics data loaded – check city_metrics.csv")
 
     st.markdown("---")
 
-    # Smaller, centered rankings table
     st.subheader("City Rankings")
     if not df_metrics.empty:
         df_rank = df_metrics[["city", "ERI"]].sort_values("ERI", ascending=False).reset_index(drop=True)
         df_rank["Rank"] = df_rank.index + 1
         df_rank["ERI"] = df_rank["ERI"].round(3)
 
-        # Center the table visually (using columns)
         col_empty1, col_table, col_empty2 = st.columns([1, 2, 1])
-
         with col_table:
             st.dataframe(
                 df_rank[["Rank", "city", "ERI"]],
@@ -232,22 +201,20 @@ with tab1:
                 }
             )
 
-        st.caption("Tip: Click column headers to sort. Explore individual cities in the 'Single City Deep Dive' tab.")
+        st.caption("Tip: Click column headers to sort. Explore individual cities in the 'Single City Focus' tab.")
     else:
         st.info("Rankings will appear once data is loaded.")
 
     st.markdown("---")
 
-    # Call-to-action / landing page footer feel
     st.info(
         "**Next steps**\n"
-        "• Adjust weights in sidebar to customize rankings\n"
-        "• Go to **Single City Deep Dive** tab to explore one city in detail\n"
-        "• Use **Interactive Maps** in the deep dive view to see spatial infrastructure layout"
+        "• Go to **Single City Focus** tab to explore one city in detail\n"
+        "• View infrastructure layout on the interactive map"
     )
 
 # =============================================================================
-# TAB 2 – Indicator Breakdown (Comparison)
+# TAB 2 – Indicator Breakdown
 # =============================================================================
 with tab2:
     st.header("Indicator Breakdown & Comparison")
@@ -257,24 +224,16 @@ with tab2:
         "while the **parallel coordinates** plot helps spot trade-offs."
     )
 
-    # ───────────────────────────────────────────────
-    # City selection specific to this tab
-    # ───────────────────────────────────────────────
-    st.subheader("Select cities to compare")
     compare_cities = st.multiselect(
-        "Choose 2–5 cities",
+        "Choose 2–5 cities to compare",
         options=cities,
-        default=["Nairobi", "Kampala", "Kigali"],
-        key="compare_cities_tab2"
+        default=["Nairobi", "Kampala", "Kigali"]
     )
 
     if compare_cities:
         df_comp = df_metrics[df_metrics["city"].isin(compare_cities)].copy()
         
         if not df_comp.empty:
-            # ───────────────────────────────
-            # Radar Chart (main visual)
-            # ───────────────────────────────
             st.subheader("Radar Chart – Multi-City Comparison")
             
             fig_radar = go.Figure()
@@ -284,7 +243,7 @@ with tab2:
                 if not row.empty:
                     values = row[indicator_cols].values.flatten().tolist()
                     fig_radar.add_trace(go.Scatterpolar(
-                        r=values + [values[0]],  # close the loop
+                        r=values + [values[0]],
                         theta=list(indicator_labels.values()) + [list(indicator_labels.values())[0]],
                         fill='toself',
                         name=city,
@@ -310,13 +269,10 @@ with tab2:
             st.caption(
                 "**How to read the radar chart**\n"
                 "• Each axis = one indicator (higher = better)\n"
-                "• Larger area = more balanced/strong overall readiness\n"
+                "• Larger area = more balanced readiness\n"
                 "• Spikes outward = strengths; inward dips = weaknesses"
             )
 
-            # ───────────────────────────────
-            # Parallel Coordinates (alternative view)
-            # ───────────────────────────────
             st.subheader("Parallel Coordinates – Trade-offs View")
             fig_pc = px.parallel_coordinates(
                 df_comp,
@@ -325,9 +281,6 @@ with tab2:
                 color_continuous_scale=px.colors.sequential.Viridis,
                 height=500
             )
-
-            # IMPORTANT: No update_traces(line=...) or opacity=... here — unsupported on parcoords traces
-            # Plotly uses fixed line width + automatic blending/transparency for readability
 
             fig_pc.update_layout(
                 title="Parallel Coordinates Plot – Indicator Trade-offs",
@@ -340,13 +293,9 @@ with tab2:
                 "**Parallel coordinates explained**\n"
                 "• Each vertical line = one indicator\n"
                 "• Each colored line = one city\n"
-                "• Higher ERI cities tend to have lines higher up on most axes\n"
-                "• Lines use built-in transparency & blending when overlapping"
+                "• Higher ERI cities tend to have lines higher up on most axes"
             )
 
-            # ───────────────────────────────
-            # Comparison Table
-            # ───────────────────────────────
             st.subheader("Detailed Scores Table")
             st.dataframe(
                 df_comp[["city"] + indicator_cols + ["ERI"]].round(3),
@@ -360,33 +309,28 @@ with tab2:
 
             st.caption("Tip: Sort columns by clicking headers. Higher values = better performance.")
         else:
-            st.info("No data found for selected cities – check city_metrics.csv")
+            st.info("No data found for selected cities.")
     else:
         st.info("Select at least two cities above to compare.")
 
-
 # =============================================================================
-# TAB 3 – Single City Deep Dive
+# TAB 3 – Single City Focus
 # =============================================================================
 with tab3:
-    st.header("Single City Deep Dive")
+    st.header("Single City Focus")
     st.markdown(
-        "Explore detailed normalized indicators and infrastructure map for **one city at a time**.\n\n"
-        "Change the city using the dropdown below — the view updates instantly."
+        "Explore detailed normalized indicators and infrastructure map for one city at a time."
     )
 
-    # Persistent city choice within this tab
     if "deep_dive_city" not in st.session_state:
-        st.session_state.deep_dive_city = "Nairobi"  # default
+        st.session_state.deep_dive_city = "Nairobi"
 
     single_city = st.selectbox(
         "Select city to explore",
         options=cities,
-        index=cities.index(st.session_state.deep_dive_city),
-        key="deep_dive_city_tab_selector"
+        index=cities.index(st.session_state.deep_dive_city)
     )
 
-    # Update session state so choice survives reruns / tab switches
     st.session_state.deep_dive_city = single_city
 
     st.subheader(f"Deep Dive: **{single_city}**")
@@ -395,19 +339,13 @@ with tab3:
         row = df_metrics[df_metrics["city"] == single_city]
 
         if not row.empty:
-            # ───────────────────────────────
-            # ERI Metric
-            # ───────────────────────────────
             eri_value = row["ERI"].iloc[0]
             st.metric(
                 label="Event Readiness Index (ERI)",
                 value=f"{eri_value:.3f}",
-                help="Weighted average of normalized indicators below"
+                help="Average of normalized indicators"
             )
 
-            # ───────────────────────────────
-            # Bar chart – already working well
-            # ───────────────────────────────
             scores_dict = row[indicator_cols].iloc[0].to_dict()
 
             plot_df = pd.DataFrame({
@@ -440,15 +378,11 @@ with tab3:
 
             st.caption(
                 "**Quick interpretation**\n"
-                "• Taller bars = stronger performance in that area\n"
+                "• Taller bars = stronger performance\n"
                 "• High road/intersection density → good accessibility\n"
-                "• High health/hotels → better crowd & emergency handling\n"
-                "• Population density gives context for crowd pressure"
+                "• High health/hotels → better crowd & emergency handling"
             )
 
-            # ───────────────────────────────
-            # Infrastructure Map – with strong debugging
-            # ───────────────────────────────
             st.subheader(f"Infrastructure Map – {single_city}")
 
             feat_path = geojson_files.get(single_city)
@@ -472,7 +406,6 @@ with tab3:
 
                     st.success("Files loaded successfully")
 
-                    # Centroid calculation
                     def extract_coordinates(geom):
                         coords = []
                         def recurse(obj):
@@ -495,27 +428,17 @@ with tab3:
                         center_lat, center_lon = 0.0, 0.0
                         st.warning("Could not calculate center – using fallback (0,0)")
 
-                    # Create map
                     m = folium.Map(
                         location=[center_lat, center_lon],
                         zoom_start=12,
-                        tiles="CartoDB positron",
-                        min_zoom=11,
-                        max_zoom=14,
-                        zoom_control=False,
-                        scrollWhennlZoom=True,
-                        doubleClickZoom=True,
-                        touchZoom=True,
-                        dragging=True
+                        tiles="CartoDB positron"
                     )
 
-                    # Boundary
                     folium.GeoJson(
                         gj_boundary,
                         style_function=lambda x: {'color': '#1f77b4', 'weight': 3, 'fillOpacity': 0.1}
                     ).add_to(m)
 
-                    # Features cluster
                     marker_cluster = MarkerCluster().add_to(m)
                     for feat in gj_features.get('features', []):
                         props = feat.get('properties', {})
@@ -525,7 +448,6 @@ with tab3:
                             popup=popup
                         ).add_to(marker_cluster)
 
-                    # Render
                     st_folium(m, width=None, height=600, returned_objects=[])
 
                 except json.JSONDecodeError as je:
@@ -534,12 +456,12 @@ with tab3:
                     st.error(f"Map rendering failed: {str(e)}")
                     st.caption("Common causes: invalid GeoJSON format, empty features, or coordinate issues.")
         else:
-            st.warning(f"No data row found for **{single_city}** in city_metrics.csv")
+            st.warning(f"No data row found for **{single_city}**")
     else:
-        st.info("Metrics data not loaded – check if city_metrics.csv exists and has correct columns.")
+        st.info("Metrics data not loaded – check city_metrics.csv")
 
 # ───────────────────────────────────────────────
 # Footer
 # ───────────────────────────────────────────────
 st.markdown("---")
-st.caption("Data: OSM/WorldPop/GADM/World Bank | Jan 20, 2026 | Nairobi, KE")
+st.caption("Data: OSM/WorldPop/GADM/World Bank | January 2026 | Nairobi, KE")
