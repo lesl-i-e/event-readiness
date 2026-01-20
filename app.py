@@ -125,24 +125,114 @@ if not df_metrics.empty:
 # ───────────────────────────────────────────────
 tab1, tab2, tab3, tab4 = st.tabs(["Overview & Rankings", "Indicator Breakdown", "Interactive Maps", "Single City Focus"])
 
+# =============================================================================
+# TAB 1 – Overview & Rankings (Landing Page)
+# =============================================================================
 with tab1:
-    st.header("Overview & Rankings")
-    st.markdown("Global comparison of Event Readiness Index (ERI) across selected cities. ERI is a weighted average of normalized indicators.")
+    st.header("Welcome to Event Readiness Dashboard")
+    st.markdown(
+        """
+        Compare how well five African cities are prepared to host major events  
+        based on transport, health, accommodation, and crowd management indicators.
+        """
+    )
 
-    if not df_metrics.empty and selected_cities:
-        df_rank = df_metrics[df_metrics["city"].isin(selected_cities)][["city", "ERI"]].sort_values("ERI", ascending=False).reset_index(drop=True)
+    # Quick stats cards – makes it feel like a dashboard landing page
+    if not df_metrics.empty:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Cities Compared", len(df_metrics), help="Total cities in dataset")
+        with col2:
+            avg_eri = df_metrics["ERI"].mean()
+            st.metric("Average ERI", f"{avg_eri:.3f}", help="Mean readiness across all cities")
+        with col3:
+            top_city = df_metrics.loc[df_metrics["ERI"].idxmax(), "city"]
+            top_score = df_metrics["ERI"].max()
+            st.metric("Top City", f"{top_city} ({top_score:.3f})", delta_color="normal")
+
+    st.markdown("---")
+
+    # Bar chart – placed first, prominent
+    st.subheader("Event Readiness Index – All Cities")
+    if not df_metrics.empty:
+        # Sort for visual ranking
+        df_bar = df_metrics.sort_values("ERI", ascending=False).copy()
+        df_bar["ERI"] = df_bar["ERI"].round(3)
+
+        fig_bar = px.bar(
+            df_bar,
+            x="city",
+            y="ERI",
+            color="city",
+            text="ERI",                      # show value on bars
+            title="Event Readiness Index Comparison",
+            labels={"ERI": "ERI Score", "city": "City"},
+            color_discrete_sequence=px.colors.qualitative.Bold,
+            height=450
+        )
+
+        fig_bar.update_traces(
+            textposition="auto",
+            textfont_size=14,
+            marker_line_color="black",
+            marker_line_width=1.2
+        )
+
+        fig_bar.update_layout(
+            xaxis_title=None,
+            yaxis_title="ERI Score (0–1)",
+            showlegend=False,
+            bargap=0.2,
+            margin=dict(l=20, r=20, t=60, b=60),
+            font=dict(size=13)
+        )
+
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+        st.caption(
+            "Higher bars = better overall readiness. "
+            "Adjust weights in the sidebar to see how priorities change rankings."
+        )
+    else:
+        st.info("No metrics data loaded – check city_metrics.csv")
+
+    st.markdown("---")
+
+    # Smaller, centered rankings table
+    st.subheader("City Rankings")
+    if not df_metrics.empty:
+        df_rank = df_metrics[["city", "ERI"]].sort_values("ERI", ascending=False).reset_index(drop=True)
         df_rank["Rank"] = df_rank.index + 1
         df_rank["ERI"] = df_rank["ERI"].round(3)
 
-        st.dataframe(
-            df_rank,
-            use_container_width=True,
-            hide_index=True
-        )
+        # Center the table visually (using columns)
+        col_empty1, col_table, col_empty2 = st.columns([1, 2, 1])
 
-        st.caption("Comment: Higher ERI indicates better overall readiness. Adjust weights in sidebar to prioritize aspects like transport or health.")
+        with col_table:
+            st.dataframe(
+                df_rank[["Rank", "city", "ERI"]],
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Rank": st.column_config.NumberColumn("Rank", width="small"),
+                    "city": st.column_config.TextColumn("City", width="medium"),
+                    "ERI": st.column_config.NumberColumn("ERI Score", format="%.3f", width="small")
+                }
+            )
+
+        st.caption("Tip: Click column headers to sort. Explore individual cities in the 'Single City Deep Dive' tab.")
     else:
-        st.info("Select cities or check if CSV data is loaded.")
+        st.info("Rankings will appear once data is loaded.")
+
+    st.markdown("---")
+
+    # Call-to-action / landing page footer feel
+    st.info(
+        "**Next steps**\n"
+        "• Adjust weights in sidebar to customize rankings\n"
+        "• Go to **Single City Deep Dive** tab to explore one city in detail\n"
+        "• Use **Interactive Maps** tab to see spatial infrastructure layout"
+    )
 
 with tab2:
     st.header("Indicator Breakdown")
