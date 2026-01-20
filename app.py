@@ -501,8 +501,12 @@ with tab3:
                         zoom_start=12,
                         tiles="CartoDB positron",
                         min_zoom=11,
-                        max_zoom=13,
-                        zoom_control=True
+                        max_zoom=14,
+                        zoom_control=False,
+                        scrollWhennlZoom=True,
+                        doubleClickZoom=True,
+                        touchZoom=True,
+                        dragging=True
                     )
 
                     # Boundary
