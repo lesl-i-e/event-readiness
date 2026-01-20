@@ -2,6 +2,21 @@
 
 **A transparent, data-driven composite index to assess urban infrastructure readiness for hosting large-scale international events in African cities**
 
+## Project Status
+<table>
+  <tr>
+    <td align="center"><a href="https://event-readiness-9luwvwne7z8gcg5qmz5ydw.streamlit.app/"><img src="https://img.shields.io/badge/Deployed_App-Open_Browser-blue" alt="Deployed App"></a></td>
+    <td align="center"><a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white" alt="Python"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://streamlit.io/"><img src="https://img.shields.io/badge/Streamlit-App-orange?logo=streamlit&logoColor=white" alt="Streamlit"></a></td>
+    <td align="center"><a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="MIT License"></a></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><a href="#"><img src="https://img.shields.io/badge/Last%20Updated-January%202026-success" alt="Last Updated"></a></td>
+  </tr>
+</table>
+
 [![Deployed App](https://img.shields.io/badge/Deployed_App-Open_Browser-blue)](https://event-readiness-9luwvwne7z8gcg5qmz5ydw.streamlit.app/)
 [![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-App-orange?logo=streamlit&logoColor=white)](https://streamlit.io/)
