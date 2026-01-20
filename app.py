@@ -123,8 +123,18 @@ if not df_metrics.empty:
 # ───────────────────────────────────────────────
 # Tabs structure
 # ───────────────────────────────────────────────
-tab1, tab2, tab3, tab4 = st.tabs(["Overview & Rankings", "Indicator Breakdown", "Interactive Maps", "Single City Focus"])
-
+tab1, tab2, tab3, = st.tabs(["Overview & Rankings", "Indicator Breakdown", "Single City Focus"])
+# Global quick links / navigation hint
+st.markdown(
+    """
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        <strong>Navigate the dashboard:</strong>  
+        Overview → compare all cities • Breakdown → deep multi-city analysis •  
+        Deep Dive → explore one city + map
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 # =============================================================================
 # TAB 1 – Overview & Rankings (Landing Page)
 # =============================================================================
@@ -347,59 +357,11 @@ with tab2:
     else:
         st.info("Select at least two cities above to compare.")
 
+
+# =============================================================================
+# TAB 3 – Single City Deep Dive
+# =============================================================================
 with tab3:
-    st.header("Interactive Maps")
-    st.markdown("Explore infrastructure features on maps for selected cities.")
-
-    if selected_cities:
-        cols = st.columns(min(3, len(selected_cities)))
-        for i, city in enumerate(selected_cities):
-            with cols[i % 3]:
-                st.subheader(city)
-                feat_path = geojson_files.get(city)
-                bound_path = boundary_files.get(city)
-                if feat_path and bound_path and os.path.exists(feat_path) and os.path.exists(bound_path):
-                    try:
-                        with open(feat_path, 'r') as f:
-                            gj_feat = json.load(f)
-                        with open(bound_path, 'r') as f:
-                            gj_bound = json.load(f)
-
-                        # Centroid
-                        def get_coords(g):
-                            coords = []
-                            def rec(c):
-                                if isinstance(c, list) and len(c) == 2 and isinstance(c[0], (float, int)):
-                                    coords.append(c)
-                                elif isinstance(c, list):
-                                    for x in c:
-                                        rec(x)
-                            rec(g.get('coordinates', []))
-                            return coords
-
-                        coords = get_coords(gj_bound['features'][0]['geometry']) if 'features' in gj_bound else []
-                        center = [mean([c[1] for c in coords]), mean([c[0] for c in coords])] if coords else [0, 0]
-
-                        m = folium.Map(location=center, zoom_start=11, tiles="CartoDB dark_matter")
-
-                        folium.GeoJson(gj_bound, style_function=lambda _: {'color': 'lightblue', 'weight': 2}).add_to(m)
-
-                        cluster = MarkerCluster().add_to(m)
-                        for feat in gj_feat.get('features', []):
-                            folium.GeoJson(feat, popup=feat.get('properties', {}).get('name', 'Feature')).add_to(cluster)
-
-                        st_folium(m, width=400, height=400)
-                    except Exception as e:
-                        st.warning(f"Map error: {str(e)}")
-                else:
-                    st.warning("Files missing")
-    else:
-        st.info("Select cities")
-
-# =============================================================================
-# TAB 4 – Single City Deep Dive
-# =============================================================================
-with tab4:
     st.header("Single City Deep Dive")
     st.markdown(
         "Explore detailed normalized indicators and infrastructure map for **one city at a time**.\n\n"
