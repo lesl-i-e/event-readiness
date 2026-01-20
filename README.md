@@ -17,12 +17,6 @@
   </tr>
 </table>
 
-[![Deployed App](https://img.shields.io/badge/Deployed_App-Open_Browser-blue)](https://event-readiness-9luwvwne7z8gcg5qmz5ydw.streamlit.app/)
-[![Python](https://img.shields.io/badge/Python-3.10+-blue?logo=python&logoColor=white)](https://www.python.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-App-orange?logo=streamlit&logoColor=white)](https://streamlit.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Last Updated](https://img.shields.io/badge/Last%20Updated-January%20202026-success)](#)
-
 ## Project Overview
 
 Large-scale international events (sports tournaments, summits, exhibitions) place significant pressure on host cities in terms of infrastructure, mobility, public services, and safety. Host city selection is often influenced by political or qualitative considerations, while quantitative, transparent readiness assessments remain limited—particularly in the East African context.
