@@ -498,8 +498,11 @@ with tab3:
                     # Create map
                     m = folium.Map(
                         location=[center_lat, center_lon],
-                        zoom_start=11,
-                        tiles="CartoDB positron"
+                        zoom_start=12,
+                        tiles="CartoDB positron",
+                        min_zoom=11,
+                        max_zoom=13,
+                        zoom_control=True
                     )
 
                     # Boundary
