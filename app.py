@@ -123,7 +123,8 @@ if not df_metrics.empty:
 # ───────────────────────────────────────────────
 # Tabs structure
 # ───────────────────────────────────────────────
-tab1, tab2, tab3, = st.tabs(["Overview & Rankings", "Indicator Breakdown", "Single City Focus"])
+tab1, tab2, tab3 = st.tabs(["Overview & Rankings", "Indicator Breakdown", "Single City Focus"])
+
 # Global quick links / navigation hint
 st.markdown(
     """
@@ -135,6 +136,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 # =============================================================================
 # TAB 1 – Overview & Rankings (Landing Page)
 # =============================================================================
@@ -147,7 +149,7 @@ with tab1:
         """
     )
 
-    # Quick stats cards – makes it feel like a dashboard landing page
+    # Quick stats cards
     if not df_metrics.empty:
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -162,10 +164,8 @@ with tab1:
 
     st.markdown("---")
 
-    # Bar chart – placed first, prominent
     st.subheader("Event Readiness Index – All Cities")
     if not df_metrics.empty:
-        # Sort for visual ranking
         df_bar = df_metrics.sort_values("ERI", ascending=False).copy()
         df_bar["ERI"] = df_bar["ERI"].round(3)
 
@@ -174,7 +174,7 @@ with tab1:
             x="city",
             y="ERI",
             color="city",
-            text="ERI",                      # show value on bars
+            text="ERI",
             title="Event Readiness Index Comparison",
             labels={"ERI": "ERI Score", "city": "City"},
             color_discrete_sequence=px.colors.qualitative.Bold,
@@ -208,16 +208,13 @@ with tab1:
 
     st.markdown("---")
 
-    # Smaller, centered rankings table
     st.subheader("City Rankings")
     if not df_metrics.empty:
         df_rank = df_metrics[["city", "ERI"]].sort_values("ERI", ascending=False).reset_index(drop=True)
         df_rank["Rank"] = df_rank.index + 1
         df_rank["ERI"] = df_rank["ERI"].round(3)
 
-        # Center the table visually (using columns)
         col_empty1, col_table, col_empty2 = st.columns([1, 2, 1])
-
         with col_table:
             st.dataframe(
                 df_rank[["Rank", "city", "ERI"]],
@@ -236,12 +233,11 @@ with tab1:
 
     st.markdown("---")
 
-    # Call-to-action / landing page footer feel
     st.info(
         "**Next steps**\n"
         "• Adjust weights in sidebar to customize rankings\n"
         "• Go to **Single City Deep Dive** tab to explore one city in detail\n"
-        "• Use **Interactive Maps** tab to see spatial infrastructure layout"
+        "• Use the maps in the deep dive view to see spatial infrastructure"
     )
 
 # =============================================================================
@@ -255,9 +251,6 @@ with tab2:
         "while the **parallel coordinates** plot helps spot trade-offs."
     )
 
-    # ───────────────────────────────────────────────
-    # City selection specific to this tab
-    # ───────────────────────────────────────────────
     st.subheader("Select cities to compare")
     compare_cities = st.multiselect(
         "Choose 2–5 cities",
@@ -270,9 +263,7 @@ with tab2:
         df_comp = df_metrics[df_metrics["city"].isin(compare_cities)].copy()
         
         if not df_comp.empty:
-            # ───────────────────────────────
-            # Radar Chart (main visual)
-            # ───────────────────────────────
+            # Radar Chart
             st.subheader("Radar Chart – Multi-City Comparison")
             
             fig_radar = go.Figure()
@@ -282,7 +273,7 @@ with tab2:
                 if not row.empty:
                     values = row[indicator_cols].values.flatten().tolist()
                     fig_radar.add_trace(go.Scatterpolar(
-                        r=values + [values[0]],  # close the loop
+                        r=values + [values[0]],
                         theta=list(indicator_labels.values()) + [list(indicator_labels.values())[0]],
                         fill='toself',
                         name=city,
@@ -312,9 +303,7 @@ with tab2:
                 "• Spikes outward = strengths; inward dips = weaknesses"
             )
 
-            # ───────────────────────────────
-            # Parallel Coordinates (alternative view)
-            # ───────────────────────────────
+            # Parallel Coordinates
             st.subheader("Parallel Coordinates – Trade-offs View")
             fig_pc = px.parallel_coordinates(
                 df_comp,
@@ -323,11 +312,15 @@ with tab2:
                 color_continuous_scale=px.colors.sequential.Viridis,
                 height=500
             )
-            fig_pc.update_traces(line=dict(width=3))
+
+            # Improved visibility without invalid width property
+            fig_pc.update_traces(opacity=0.9)
+
             fig_pc.update_layout(
                 title="Parallel Coordinates Plot – Indicator Trade-offs",
                 margin=dict(l=80, r=80, t=80, b=80)
             )
+
             st.plotly_chart(fig_pc, use_container_width=True)
 
             st.caption(
@@ -337,9 +330,7 @@ with tab2:
                 "• Higher ERI cities tend to have lines higher up on most axes"
             )
 
-            # ───────────────────────────────
             # Comparison Table
-            # ───────────────────────────────
             st.subheader("Detailed Scores Table")
             st.dataframe(
                 df_comp[["city"] + indicator_cols + ["ERI"]].round(3),
@@ -357,7 +348,6 @@ with tab2:
     else:
         st.info("Select at least two cities above to compare.")
 
-
 # =============================================================================
 # TAB 3 – Single City Deep Dive
 # =============================================================================
@@ -368,9 +358,8 @@ with tab3:
         "Change the city using the dropdown below — the view updates instantly."
     )
 
-    # Persistent city choice within this tab
     if "deep_dive_city" not in st.session_state:
-        st.session_state.deep_dive_city = "Nairobi"  # default
+        st.session_state.deep_dive_city = "Nairobi"
 
     single_city = st.selectbox(
         "Select city to explore",
@@ -379,7 +368,6 @@ with tab3:
         key="deep_dive_city_tab_selector"
     )
 
-    # Update session state so choice survives reruns / tab switches
     st.session_state.deep_dive_city = single_city
 
     st.subheader(f"Deep Dive: **{single_city}**")
@@ -388,9 +376,6 @@ with tab3:
         row = df_metrics[df_metrics["city"] == single_city]
 
         if not row.empty:
-            # ───────────────────────────────
-            # ERI Metric
-            # ───────────────────────────────
             eri_value = row["ERI"].iloc[0]
             st.metric(
                 label="Event Readiness Index (ERI)",
@@ -398,9 +383,6 @@ with tab3:
                 help="Weighted average of normalized indicators below"
             )
 
-            # ───────────────────────────────
-            # Bar chart – already working well
-            # ───────────────────────────────
             scores_dict = row[indicator_cols].iloc[0].to_dict()
 
             plot_df = pd.DataFrame({
@@ -439,9 +421,7 @@ with tab3:
                 "• Population density gives context for crowd pressure"
             )
 
-            # ───────────────────────────────
-            # Infrastructure Map – with strong debugging
-            # ───────────────────────────────
+            # Infrastructure Map
             st.subheader(f"Infrastructure Map – {single_city}")
 
             feat_path = geojson_files.get(single_city)
@@ -465,7 +445,6 @@ with tab3:
 
                     st.success("Files loaded successfully")
 
-                    # Centroid calculation
                     def extract_coordinates(geom):
                         coords = []
                         def recurse(obj):
@@ -488,20 +467,17 @@ with tab3:
                         center_lat, center_lon = 0.0, 0.0
                         st.warning("Could not calculate center – using fallback (0,0)")
 
-                    # Create map
                     m = folium.Map(
                         location=[center_lat, center_lon],
                         zoom_start=11,
                         tiles="CartoDB positron"
                     )
 
-                    # Boundary
                     folium.GeoJson(
                         gj_boundary,
                         style_function=lambda x: {'color': '#1f77b4', 'weight': 3, 'fillOpacity': 0.1}
                     ).add_to(m)
 
-                    # Features cluster
                     marker_cluster = MarkerCluster().add_to(m)
                     for feat in gj_features.get('features', []):
                         props = feat.get('properties', {})
@@ -511,7 +487,6 @@ with tab3:
                             popup=popup
                         ).add_to(marker_cluster)
 
-                    # Render
                     st_folium(m, width=None, height=600, returned_objects=[])
 
                 except json.JSONDecodeError as je:
@@ -528,4 +503,4 @@ with tab3:
 # Footer
 # ───────────────────────────────────────────────
 st.markdown("---")
-st.caption("Data: OSM/WorldPop/GADM/World Bank | Jan 19, 2026 | Nairobi, KE")
+st.caption("Data: OSM/WorldPop/GADM/World Bank | Jan 20, 2026 | Nairobi, KE")
