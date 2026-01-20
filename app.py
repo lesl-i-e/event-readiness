@@ -234,33 +234,118 @@ with tab1:
         "• Use **Interactive Maps** tab to see spatial infrastructure layout"
     )
 
+# =============================================================================
+# TAB 2 – Indicator Breakdown (Comparison)
+# =============================================================================
 with tab2:
-    st.header("Indicator Breakdown")
-    st.markdown("Detailed view of individual indicators and radar comparison.")
+    st.header("Indicator Breakdown & Comparison")
+    st.markdown(
+        "See how selected cities perform across all readiness dimensions.\n"
+        "The **radar chart** shows strengths and weaknesses visually, "
+        "while the **parallel coordinates** plot helps spot trade-offs."
+    )
 
-    if not df_metrics.empty and selected_cities:
-        # Radar chart
-        fig_radar = go.Figure()
-        for city in selected_cities:
-            row = df_metrics[df_metrics["city"] == city]
-            if not row.empty:
-                values = row[indicator_cols].values.flatten().tolist()
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=values + [values[0]],
-                    theta=list(indicator_labels.values()) + [list(indicator_labels.values())[0]],
-                    fill='toself',
-                    name=city
-                ))
-        fig_radar.update_layout(
-            polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
-            showlegend=True,
-            height=500
-        )
-        st.plotly_chart(fig_radar, use_container_width=True)
+    # ───────────────────────────────────────────────
+    # City selection specific to this tab
+    # ───────────────────────────────────────────────
+    st.subheader("Select cities to compare")
+    compare_cities = st.multiselect(
+        "Choose 2–5 cities",
+        options=cities,
+        default=["Nairobi", "Kampala", "Kigali"],
+        key="compare_cities_tab2"
+    )
 
-        st.caption("Comment: Radar shows strengths/weaknesses. E.g., high road density suggests good connectivity but may imply traffic issues.")
+    if compare_cities:
+        df_comp = df_metrics[df_metrics["city"].isin(compare_cities)].copy()
+        
+        if not df_comp.empty:
+            # ───────────────────────────────
+            # Radar Chart (main visual)
+            # ───────────────────────────────
+            st.subheader("Radar Chart – Multi-City Comparison")
+            
+            fig_radar = go.Figure()
+
+            for city in compare_cities:
+                row = df_comp[df_comp["city"] == city]
+                if not row.empty:
+                    values = row[indicator_cols].values.flatten().tolist()
+                    fig_radar.add_trace(go.Scatterpolar(
+                        r=values + [values[0]],  # close the loop
+                        theta=list(indicator_labels.values()) + [list(indicator_labels.values())[0]],
+                        fill='toself',
+                        name=city,
+                        line=dict(width=2),
+                        opacity=0.75
+                    ))
+
+            fig_radar.update_layout(
+                polar=dict(
+                    radialaxis=dict(visible=True, range=[0, 1], showticklabels=True),
+                    angularaxis=dict(showticklabels=True, tickfont_size=11)
+                ),
+                showlegend=True,
+                legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5),
+                height=600,
+                title="Normalized Indicator Scores – Radar View",
+                margin=dict(l=40, r=40, t=80, b=120),
+                font=dict(size=12)
+            )
+
+            st.plotly_chart(fig_radar, use_container_width=True)
+
+            st.caption(
+                "**How to read the radar chart**\n"
+                "• Each axis = one indicator (higher = better)\n"
+                "• Larger area = more balanced/strong overall readiness\n"
+                "• Spikes outward = strengths; inward dips = weaknesses"
+            )
+
+            # ───────────────────────────────
+            # Parallel Coordinates (alternative view)
+            # ───────────────────────────────
+            st.subheader("Parallel Coordinates – Trade-offs View")
+            fig_pc = px.parallel_coordinates(
+                df_comp,
+                color="ERI",
+                labels={col: indicator_labels.get(col, col) for col in indicator_cols},
+                color_continuous_scale=px.colors.sequential.Viridis,
+                height=500
+            )
+            fig_pc.update_traces(line=dict(width=3))
+            fig_pc.update_layout(
+                title="Parallel Coordinates Plot – Indicator Trade-offs",
+                margin=dict(l=80, r=80, t=80, b=80)
+            )
+            st.plotly_chart(fig_pc, use_container_width=True)
+
+            st.caption(
+                "**Parallel coordinates explained**\n"
+                "• Each vertical line = one indicator\n"
+                "• Each colored line = one city\n"
+                "• Higher ERI cities tend to have lines higher up on most axes"
+            )
+
+            # ───────────────────────────────
+            # Comparison Table
+            # ───────────────────────────────
+            st.subheader("Detailed Scores Table")
+            st.dataframe(
+                df_comp[["city"] + indicator_cols + ["ERI"]].round(3),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "city": st.column_config.TextColumn("City", width="medium"),
+                    "ERI": st.column_config.NumberColumn("ERI", format="%.3f", width="small")
+                }
+            )
+
+            st.caption("Tip: Sort columns by clicking headers. Higher values = better performance.")
+        else:
+            st.info("No data found for selected cities – check city_metrics.csv")
     else:
-        st.info("No data for breakdown.")
+        st.info("Select at least two cities above to compare.")
 
 with tab3:
     st.header("Interactive Maps")
