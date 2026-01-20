@@ -112,6 +112,16 @@ for col in indicator_cols:
     label = indicator_labels.get(col, col)
     weights[col] = st.sidebar.slider(label, 0.0, 1.0, 1.0 / len(indicator_cols), step=0.05)
 
+st.sidebar.markdown("---")
+    st.sidebar.subheader("Deep Dive Mode")
+    single_city = st.sidebar.selectbox(
+        "Focus on one city",
+        options=cities,
+        index=cities.index(st.session_state.deep_dive_city),
+        key="deep_dive_city_selector"
+    )
+    st.session_state.deep_dive_city = single_city
+
 # Normalize weights
 total = sum(weights.values())
 weights = {k: v / total if total > 0 else 1.0 / len(indicator_cols) for k, v in weights.items()}
